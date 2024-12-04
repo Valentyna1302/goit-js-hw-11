@@ -1,68 +1,45 @@
-// Описаний у документації
 import iziToast from 'izitoast';
-// Додатковий імпорт стилів
 import 'izitoast/dist/css/iziToast.min.css';
-// Описаний у документації
-import SimpleLightbox from 'simplelightbox';
-// Додатковий імпорт стилів
-import 'simplelightbox/dist/simple-lightbox.min.css';
 
-const API_KEY = '47378473-ac089f81fe0a13d2309255fc1';
+import { getPhotoService } from './js/pixabay-api';
+import { createMarkup } from './js/render-functions';
 
 const form = document.querySelector('.form-js');
-const input = document.querySelector('.input-js');
-const list = document.querySelector('.list-js');
-
-const params = new URLSearchParams({
-  key: API_KEY,
-  q: 'monstera',
-  image_type: 'photo',
-  orientation: 'horizontal',
-  safesearch: 'true',
-});
-
-fetch(`https://pixabay.com/api/?${params}`)
-  .then(res => {
-    if (!res.ok) {
-      throw new Error(res.statusText);
-    }
-    return res.json();
-  })
-  .then(data => {
-    console.log(data);
-    list.insertAdjacentHTML('beforeend', createMarkup(data.hits));
-  })
-  .catch(error => console.log(error));
-
-function createMarkup(arr) {
-  return arr
-    .map(
-      ({
-        webformatURL,
-        largeImageURL,
-        tags,
-        likes,
-        views,
-        comments,
-        downloads,
-      }) => `<li class="list-item" >
-  <a href="${largeImageURL}" alt="${tags}" title=""/>
-    <img src="${webformatURL}" alt="${tags}" class="img-item">
-  <div class="list-container">
-  <p class="item"><span class="item-text">Likes</span> <span>${likes}</span></p>
-  <p class="item"><span class="item-text">Wiews</span> <span>${views}</span></p>
-  <p class="item"><span class="item-text">Comments</span> <span>${comments}</span></p>
-  <p class="item"><span class="item-text">Downlods</span> <span>${downloads}</span></p>
-  </div></a>
-</li>`
-    )
-    .join('');
-}
+export const list = document.querySelector('.list-js');
+const loader = document.querySelector('.loader');
 
 form.addEventListener('submit', handlerSearch);
 
 function handlerSearch(event) {
   event.preventDefault();
 
-  const { q } = event.target.elements;
+  const { picture } = event.currentTarget.elements;
+
+  if (picture.value.trim() === '') {
+    return iziToast.error({
+      position: 'topRight',
+      message: 'Fill out the form',
+      backgroundColor: '#EF4040',
+    });
+  }
+  list.innerHTML = '';
+  loader.classList.remove('hidden');
+
+  getPhotoService(picture.value.trim())
+    .then(data => {
+      if (data.hits.length === 0) {
+        return iziToast.error({
+          position: 'topRight',
+          message:
+            'Sorry, there are no images matching your search query. Please try again!',
+          backgroundColor: '#EF4040',
+        });
+      }
+      createMarkup(data.hits);
+      form.reset();
+    })
+    .catch(error =>
+      iziToast.error({ position: 'topRight', message: error.message })
+    )
+    .finally(() => loader.classList.add('hidden'));
 }
